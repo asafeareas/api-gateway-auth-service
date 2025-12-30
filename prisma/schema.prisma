@@ -1,0 +1,85 @@
+// Prisma Schema for Authentication + API Rate Limiting Service
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User entity for authentication
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // Hashed with bcrypt
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  apiClients    ApiClient[]
+  refreshTokens RefreshToken[]
+  subscription  Subscription?
+
+  @@index([email])
+  @@map("users")
+}
+
+// API Client entity - represents an API key holder
+model ApiClient {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  apiKeyPrefix String   // First 16 chars of API key for efficient lookup
+  apiKeyHash   String   @unique // Hashed API key
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([apiKeyPrefix])
+  @@index([apiKeyHash])
+  @@map("api_clients")
+}
+
+// Refresh Token entity - stored in database for revocation
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique // JWT refresh token
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// Subscription Plan entity - defines rate limits per plan
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  plan      String   // 'FREE' or 'PRO'
+  requestsPerMinute Int
+  requestsPerDay    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([plan])
+  @@map("subscriptions")
+}
+
