@@ -1,93 +1,74 @@
-<div align="center">
+The API Rate Limiting Service is a robust, production-ready microservice focused on secure authentication and rate limiting for APIs. It's designed for scalability and ease of use, following best practices in architecture and security. Below, I'll break down its core aspects based on the provided details, including how to get it running and potential extensions.
+Core Features
 
-# API Rate Limiting Service
+Authentication: Uses JWT for access tokens with refresh token support. Includes registration, login, token refresh, and logout endpoints. Refresh tokens are stored and can be revoked for security.
+API Key Management: Allows creating and retrieving API keys for clients, with keys hashed before storage to prevent exposure.
+Rate Limiting: Implemented via Redis for efficient, distributed limiting. Supports per-minute and per-day quotas to prevent abuse, DoS attacks, or overuse.
+Subscription Plans: Built-in tiers (FREE and PRO) to control access levels, usage caps, and features. The /usage endpoint provides current plan details and stats.
+Architecture: Adheres to Clean Architecture principles in a modular monolith setup, making it easy to maintain or split into microservices later. Modules are separated for auth, clients, rate limiting, and plans.
+Logging and Validation: Pino for structured, performant logging (no sensitive data logged). Zod for strict, fail-fast env var validation at startup.
+Security: Bcrypt for password hashing, input validation on all endpoints, short-lived JWTs, and revocable tokens. Follows OWASP-inspired best practices.
 
-**Production-grade Authentication + API Rate Limiting microservice**
-<br>
-*Built with Node.js, TypeScript, Fastify, Prisma, and Redis.*
+Tech Stack Breakdown
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
-[![Fastify](https://img.shields.io/badge/Framework-Fastify-white.svg)](https://www.fastify.io/)
-[![Docker](https://img.shields.io/badge/Container-Docker-2496ED.svg)](https://www.docker.com/)
+Runtime & Language: Node.js (LTS version) with TypeScript for type safety and better developer experience.
+Framework: Fastify for high-performance routing and low overhead (often 2-3x faster than Express in benchmarks).
+Database: PostgreSQL managed via Prisma ORM for type-safe queries and migrations.
+Cache: Redis for rate limiting, token storage, and fast data access.
+Other Tools: Zod for schema validation, Pino for logging, Docker for containerization, pnpm for efficient package management.
+This stack is optimized for production: lightweight, scalable, and container-friendly.
 
-</div>
+Project Structure
+The codebase is organized for readability and modularity:
+textsrc/
+  modules/
+    auth/          # Handles JWT, refresh tokens, and auth logic
+    clients/       # API key creation, listing, and management
+    rateLimit/     # Core rate limiting rules and Redis integration
+    plans/         # Subscription tier definitions and enforcement
+  shared/
+    middlewares/   # Authentication and rate limiting hooks for request pipeline
+    config/        # Env var setup and Zod validation
+    logger/        # Pino configuration
+    errors/        # Custom error classes and handling
+  infra/
+    database/      # Prisma client and DB connections
+    redis/         # Redis client setup and utilities
+Request flow: Client → Auth Middleware → Rate Limit Middleware → Controller. This ensures every request is authenticated and rate-checked before processing.
+Getting Started (Expanded Guide)
+Follow these steps to set it up locally or in production. Assumes you have Node.js ≥18, pnpm ≥8, and Docker installed.
 
----
+Install Dependencies:textpnpm installThis pulls in all packages like Fastify, Prisma, Redis client, Zod, Pino, etc.
+Configure Environment:
+Copy the example:textcp .env.example .envEdit .env:
+JWT_SECRET: A strong, random string (e.g., generate via openssl rand -hex 32).
+DATABASE_URL: Defaults to PostgreSQL via Docker (e.g., postgresql://user:password@localhost:5432/dbname).
+REDIS_URL: Defaults to Docker Redis (e.g., redis://localhost:6379).
+Other vars like log levels or plan limits (see ENV_VARIABLES.md for full docs).
+The app uses Zod to validate these at startup—if invalid, it crashes early with clear errors.
 
-## ✨ Features
+Start Infrastructure:textdocker compose up -dThis spins up PostgreSQL and Redis containers. Check docker ps to confirm they're running.
+Set Up Database:textpnpm prisma:generate
+pnpm prisma:migrateGenerates Prisma client and applies migrations. If needed, seed data with pnpm prisma:seed (if implemented).
+Run the Server:textpnpm devStarts in development mode with hot reloading. For production: pnpm start.
+Default port: 3000 (configurable in env).
+Logs will show DB/Redis connections succeeding.
 
-- 🔐 **JWT-based authentication** with refresh tokens
-- 🔑 **API Key management** for clients
-- 📊 **Redis-based rate limiting** (per minute & per day)
-- 💳 **Subscription plans** (FREE / PRO)
-- 🏗️ **Clean Architecture** + Modular Monolith
-- 📝 **Structured logging** with Pino
-- ✅ **Fail-fast environment validation** with Zod
-- 🔒 **Security best practices**
 
----
+Test endpoints with tools like Postman or curl:
 
-## 🛠️ Tech Stack
+Register: POST /auth/register with JSON body { "email": "user@example.com", "password": "securepass" }.
+Login: POST /auth/login to get access/refresh tokens.
+Create Client: POST /clients (auth required).
+Check Usage: GET /usage (auth required).
 
-| Category | Technology |
-| :--- | :--- |
-| **Runtime** | Node.js (LTS) |
-| **Language** | TypeScript |
-| **Framework** | Fastify |
-| **Database** | PostgreSQL (Prisma ORM) |
-| **Cache** | Redis |
-| **Validation** | Zod |
-| **Logging** | Pino |
-| **Containerization** | Docker & Docker Compose |
-| **Package Manager** | pnpm |
+Potential Improvements or Extensions
 
----
+Monitoring: Integrate Prometheus for metrics on rate limits, usage, and errors.
+Testing: Add Jest or Vitest for unit/integration tests on modules and endpoints.
+Deployment: Use Kubernetes for scaling, or PM2 for clustering in Node. Docker image is ready for CI/CD.
+Advanced Rate Limiting: Add IP-based limits or custom algorithms (e.g., token bucket via Redis Lua scripts).
+Payments: For PRO plans, hook into Stripe for subscriptions.
+Error Handling: Already solid with custom errors, but add Sentry for production alerting.
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-* Node.js >= 18
-* pnpm >= 8
-* Docker & Docker Compose
-
-> **Note:** PostgreSQL and Redis are provided via Docker. No local installation required.
-
-### Quick Start
-
-**1. Install dependencies**
-
-```bash
-pnpm install
-2. Setup environment variablesBashcp .env.example .env
-Update .env with your configuration:Set JWT_SECRETUpdate DATABASE_URL if needed (default Docker config works)3. Start infrastructureBashdocker compose up -d
-4. Initialize databaseBashpnpm prisma:generate
-pnpm prisma:migrate
-5. Start the serverBashpnpm dev
-If everything is configured correctly, the server will start with database and Redis connections established.⚙️ Environment ConfigurationThis project uses strict environment variable validation at startup..env.example: Public contract with all required variables..env: Local secrets (never commit this file).Validation: Application fails fast if configuration is invalid.For detailed documentation, see ENV_VARIABLES.md.📡 API EndpointsAuthenticationMethodEndpointPOST/auth/registerPOST/auth/loginPOST/auth/refreshPOST/auth/logoutAPI ClientsMethodEndpointPOST/clientsGET/clientsUsageMethodEndpointDescriptionGET/usageCurrent plan and usage statistics🏗️ ArchitectureThe project follows Clean Architecture principles with a modular monolith structure, ready to be split into microservices.Plaintextsrc/
-  ├── modules/
-  │    ├── auth/         # Authentication and tokens
-  │    ├── clients/      # API client management
-  │    ├── rateLimit/    # Rate limiting logic
-  │    └── plans/        # Subscription plans
-  ├── shared/
-  │    ├── middlewares/  # Auth and rate limit pipeline
-  │    ├── config/       # Environment validation
-  │    ├── logger/       # Logging configuration
-  │    └── errors/       # Custom error handling
-  └── infra/
-       ├── database/     # Prisma client
-       └── redis/        # Redis connection
-Request FlowSnippet de códigograph TD;
-    Client-->Auth_Middleware;
-    Auth_Middleware-->Rate_Limit_Middleware;
-    Rate_Limit_Middleware-->Controller;
-(Or via text representation)PlaintextClient
-  ↓
-Auth Middleware
-  ↓
-Rate Limit Middleware
-  ↓
-Controller
-🔒 SecurityPasswords: Hashed using bcrypt.API Keys: Hashed before storage.Tokens: Short-lived JWT access tokens.Revocation: Refresh tokens stored and revocable.Validation: Input validation on all endpoints.Logs: No sensitive data in logs.📄 LicenseThis project is licensed under the MIT License.
+This setup is ideal for SaaS APIs, internal services, or any app needing controlled access. If you're running into issues (e.g., DB connection errors), check logs for details or verify Docker containers. For the full env var docs, refer to ENV_VARIABLES.md in the project. If this is your project, it's well-structured—great job on the modular design!
