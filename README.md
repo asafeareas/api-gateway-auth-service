@@ -1,101 +1,114 @@
-<div align="center">
-
 # API Rate Limiting Service
 
-**Production-grade Authentication + API Rate Limiting microservice**
-<br>
-*Built with Node.js, TypeScript, Fastify, Prisma, and Redis.*
+Production-grade Authentication + API Rate Limiting microservice built with Node.js, TypeScript, Fastify, Prisma, and Redis.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue.svg)](https://www.typescriptlang.org/)
-[![Fastify](https://img.shields.io/badge/Framework-Fastify-white.svg)](https://www.fastify.io/)
-[![Docker](https://img.shields.io/badge/Container-Docker-2496ED.svg)](https://www.docker.com/)
+## Features
 
-</div>
+- 🔐 JWT-based authentication with refresh tokens
+- 🔑 API Key management for clients
+- 📊 Redis-based rate limiting (Fixed Window)
+- 💳 Subscription plans (FREE, PRO)
+- 🏗️ Clean Architecture + Modular Monolith
+- 📝 Structured logging with Pino
+- ✅ Input validation with Zod
+- 🔒 Security best practices
 
----
+## Tech Stack
 
-## ✨ Features
+- **Runtime**: Node.js (LTS)
+- **Language**: TypeScript
+- **Framework**: Fastify
+- **Database**: PostgreSQL (Prisma ORM)
+- **Cache**: Redis (ioredis)
+- **Package Manager**: pnpm
 
-- 🔐 **JWT-based authentication** with refresh tokens
-- 🔑 **API Key management** for clients
-- 📊 **Redis-based rate limiting** (per minute & per day)
-- 💳 **Subscription plans** (FREE / PRO)
-- 🏗️ **Clean Architecture** + Modular Monolith
-- 📝 **Structured logging** with Pino
-- ✅ **Fail-fast environment validation** with Zod
-- 🔒 **Security best practices**
-
----
-
-## 🛠️ Tech Stack
-
-| Category | Technology |
-| :--- | :--- |
-| **Runtime** | Node.js (LTS) |
-| **Language** | TypeScript |
-| **Framework** | Fastify |
-| **Database** | PostgreSQL (Prisma ORM) |
-| **Cache** | Redis |
-| **Validation** | Zod |
-| **Logging** | Pino |
-| **Containerization** | Docker & Docker Compose |
-| **Package Manager** | pnpm |
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-* Node.js >= 18
-* pnpm >= 8
-* Docker & Docker Compose
+- Node.js >= 18.0.0
+- pnpm >= 8.0.0
+- PostgreSQL (running and accessible)
+- Redis (running and accessible)
 
-> **Note:** PostgreSQL and Redis are provided via Docker. No local installation required.
+### Quick Start (3 Steps)
 
-### Quick Start
-
-**1. Install dependencies**
-
+1. **Install dependencies and setup environment:**
+```bash
 pnpm install
+pnpm setup
+```
 
-**2. Setup environment variablesBashcp .env.example .env**
-Update .env with your configuration:Set JWT_SECRETUpdate DATABASE_URL if needed (default Docker config works)
+2. **Update `.env` with your configuration:**
+   - Set `JWT_SECRET` to a secure secret (minimum 32 characters)
+   - Update `DATABASE_URL` with your PostgreSQL connection string
+   - Adjust Redis settings if needed
 
-**3. Start infrastructureBashdocker compose up -d**
-
-**4. Initialize databaseBashpnpm prisma:generate**
+3. **Initialize database and start server:**
+```bash
+pnpm prisma:generate
 pnpm prisma:migrate
+pnpm dev
+```
 
-**5. Start the serverBashpnpm dev**
-If everything is configured correctly, the server will start with database and Redis connections established.⚙️ Environment ConfigurationThis project uses strict environment variable validation at startup..env.example: Public contract with all required variables..env: Local secrets (never commit this file).Validation: Application fails fast if configuration is invalid.For detailed documentation, see ENV_VARIABLES.md.📡 API EndpointsAuthenticationMethodEndpointPOST/auth/registerPOST/auth/loginPOST/auth/refreshPOST/auth/logoutAPI ClientsMethodEndpointPOST/clientsGET/clientsUsageMethodEndpointDescriptionGET/usageCurrent plan and usage statistics
+### Environment Configuration
 
-🏗️ ArchitectureThe project follows Clean Architecture principles with a modular monolith structure, ready to be split into microservices.Plaintextsrc/
+The project uses a strict environment variable validation system:
 
-  ├── modules/
-  │    ├── auth/         # Authentication and tokens
-  │    ├── clients/      # API client management
-  │    ├── rateLimit/    # Rate limiting logic
-  │    └── plans/        # Subscription plans
-  ├── shared/
-  │    ├── middlewares/  # Auth and rate limit pipeline
-  │    ├── config/       # Environment validation
-  │    ├── logger/       # Logging configuration
-  │    └── errors/       # Custom error handling
-  └── infra/
-       ├── database/     # Prisma client
-       └── redis/        # Redis connection
-       
-Request FlowSnippet de códigograph TD;
-    Client-->Auth_Middleware;
-    Auth_Middleware-->Rate_Limit_Middleware;
-    Rate_Limit_Middleware-->Controller;
-(Or via text representation)PlaintextClient
-  ↓
-Auth Middleware
-  ↓
-Rate Limit Middleware
-  ↓
-Controller
-🔒 SecurityPasswords: Hashed using bcrypt.API Keys: Hashed before storage.Tokens: Short-lived JWT access tokens.Revocation: Refresh tokens stored and revocable.Validation: Input validation on all endpoints.Logs: No sensitive data in logs.📄 LicenseThis project is licensed under the MIT License.
+- **`.env.example`**: Public contract with all required variables (committed to repo)
+- **`.env`**: Your local configuration (never commit this file!)
+- **Validation**: All variables are validated at startup with clear error messages
+
+**⚠️ Security Warning**: The `.env` file contains sensitive information and must NEVER be committed to version control. It's already included in `.gitignore`.
+
+For detailed environment variable documentation, see [ENV_VARIABLES.md](./ENV_VARIABLES.md).
+
+## API Endpoints
+
+### Authentication
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login with email/password
+- `POST /auth/refresh` - Refresh access token
+- `POST /auth/logout` - Logout and invalidate refresh token
+
+### API Clients
+- `POST /clients` - Create new API client
+- `GET /clients` - List user's API clients
+
+### Usage
+- `GET /usage` - Get current plan and usage statistics
+
+## Architecture
+
+The project follows Clean Architecture principles with a modular monolith structure, ready to be split into microservices:
+
+```
+src/
+  modules/
+    auth/          # Authentication module
+    clients/        # API Client management
+    rateLimit/      # Rate limiting logic
+    plans/          # Subscription plans
+  shared/
+    http/           # HTTP utilities
+    middlewares/    # Shared middlewares
+    errors/         # Custom error classes
+    logger/         # Logging configuration
+    config/         # Configuration management
+  infra/
+    database/       # Prisma client
+    redis/          # Redis client
+```
+
+## Security
+
+- Passwords are hashed using bcrypt
+- API Keys are hashed before storage
+- JWT tokens with short expiration times
+- Refresh tokens stored in database (revocable)
+- Input validation on all endpoints
+- No sensitive data in logs
+
+## License
+
+MIT
