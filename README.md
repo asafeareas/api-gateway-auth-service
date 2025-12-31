@@ -4,112 +4,141 @@ Production-grade Authentication + API Rate Limiting microservice built with Node
 
 ## Features
 
-- 🔐 JWT-based authentication with refresh tokens
-- 🔑 API Key management for clients
-- 📊 Redis-based rate limiting (Fixed Window)
-- 💳 Subscription plans (FREE, PRO)
-- 🏗️ Clean Architecture + Modular Monolith
-- 📝 Structured logging with Pino
-- ✅ Input validation with Zod
-- 🔒 Security best practices
+- 🔐 JWT-based authentication with refresh tokens  
+- 🔑 API Key management for clients  
+- 📊 Redis-based rate limiting (per minute & per day)  
+- 💳 Subscription plans (FREE / PRO)  
+- 🏗️ Clean Architecture + Modular Monolith  
+- 📝 Structured logging with Pino  
+- ✅ Fail-fast environment validation with Zod  
+- 🔒 Security best practices  
 
 ## Tech Stack
 
-- **Runtime**: Node.js (LTS)
-- **Language**: TypeScript
-- **Framework**: Fastify
-- **Database**: PostgreSQL (Prisma ORM)
-- **Cache**: Redis (ioredis)
-- **Package Manager**: pnpm
+- **Runtime**: Node.js (LTS)  
+- **Language**: TypeScript  
+- **Framework**: Fastify  
+- **Database**: PostgreSQL (Prisma ORM)  
+- **Cache**: Redis  
+- **Validation**: Zod  
+- **Logging**: Pino  
+- **Containerization**: Docker & Docker Compose  
+- **Package Manager**: pnpm  
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js >= 18.0.0
-- pnpm >= 8.0.0
-- PostgreSQL (running and accessible)
-- Redis (running and accessible)
+- Node.js >= 18  
+- pnpm >= 8  
+- Docker & Docker Compose  
 
-### Quick Start (3 Steps)
+> PostgreSQL and Redis are provided via Docker. No local installation required.
 
-1. **Install dependencies and setup environment:**
+### Quick Start
+
+1. **Install dependencies**
 ```bash
 pnpm install
-pnpm setup
-```
+Setup environment variables
 
-2. **Update `.env` with your configuration:**
-   - Set `JWT_SECRET` to a secure secret (minimum 32 characters)
-   - Update `DATABASE_URL` with your PostgreSQL connection string
-   - Adjust Redis settings if needed
+bash
+Copiar código
+cp .env.example .env
+Update .env with your configuration:
 
-3. **Initialize database and start server:**
-```bash
+Set JWT_SECRET
+
+Update DATABASE_URL if needed (default Docker config works)
+
+Start infrastructure
+
+bash
+Copiar código
+docker compose up -d
+Initialize database
+
+bash
+Copiar código
 pnpm prisma:generate
 pnpm prisma:migrate
+Start the server
+
+bash
+Copiar código
 pnpm dev
-```
+If everything is configured correctly, the server will start with database and Redis connections established.
 
-### Environment Configuration
+Environment Configuration
+This project uses strict environment variable validation at startup.
 
-The project uses a strict environment variable validation system:
+.env.example: Public contract with all required variables
 
-- **`.env.example`**: Public contract with all required variables (committed to repo)
-- **`.env`**: Your local configuration (never commit this file!)
-- **Validation**: All variables are validated at startup with clear error messages
+.env: Local secrets (never commit this file)
 
-**⚠️ Security Warning**: The `.env` file contains sensitive information and must NEVER be committed to version control. It's already included in `.gitignore`.
+Validation: Application fails fast if configuration is invalid
 
-For detailed environment variable documentation, see [ENV_VARIABLES.md](./ENV_VARIABLES.md).
+For detailed documentation, see ENV_VARIABLES.md.
 
-## API Endpoints
+API Endpoints
+Authentication
+POST /auth/register
 
-### Authentication
-- `POST /auth/register` - Register new user
-- `POST /auth/login` - Login with email/password
-- `POST /auth/refresh` - Refresh access token
-- `POST /auth/logout` - Logout and invalidate refresh token
+POST /auth/login
 
-### API Clients
-- `POST /clients` - Create new API client
-- `GET /clients` - List user's API clients
+POST /auth/refresh
 
-### Usage
-- `GET /usage` - Get current plan and usage statistics
+POST /auth/logout
 
-## Architecture
+API Clients
+POST /clients
 
-The project follows Clean Architecture principles with a modular monolith structure, ready to be split into microservices:
+GET /clients
 
-```
+Usage
+GET /usage – Current plan and usage statistics
+
+Architecture
+The project follows Clean Architecture principles with a modular monolith structure, ready to be split into microservices.
+
+csharp
+Copiar código
 src/
   modules/
-    auth/          # Authentication module
-    clients/        # API Client management
-    rateLimit/      # Rate limiting logic
-    plans/          # Subscription plans
+    auth/          # Authentication and tokens
+    clients/       # API client management
+    rateLimit/     # Rate limiting logic
+    plans/         # Subscription plans
   shared/
-    http/           # HTTP utilities
-    middlewares/    # Shared middlewares
-    errors/         # Custom error classes
-    logger/         # Logging configuration
-    config/         # Configuration management
+    middlewares/   # Auth and rate limit pipeline
+    config/        # Environment validation
+    logger/        # Logging configuration
+    errors/        # Custom error handling
   infra/
-    database/       # Prisma client
-    redis/          # Redis client
-```
+    database/      # Prisma client
+    redis/         # Redis connection
+Request Flow
+arduino
+Copiar código
+Client
+  ↓
+Auth Middleware
+  ↓
+Rate Limit Middleware
+  ↓
+Controller
+Security
+Passwords hashed using bcrypt
 
-## Security
+API keys hashed before storage
 
-- Passwords are hashed using bcrypt
-- API Keys are hashed before storage
-- JWT tokens with short expiration times
-- Refresh tokens stored in database (revocable)
-- Input validation on all endpoints
-- No sensitive data in logs
+Short-lived JWT access tokens
 
-## License
+Refresh tokens stored and revocable
 
+Input validation on all endpoints
+
+No sensitive data in logs
+
+License
 MIT
-
