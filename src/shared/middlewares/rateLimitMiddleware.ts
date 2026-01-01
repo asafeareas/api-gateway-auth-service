@@ -45,8 +45,8 @@ export async function rateLimitMiddleware(
     return; // Let authentication middleware handle this
   }
 
-  // Use clientId for rate limiting if available, otherwise use userId
-  const rateLimitKey = clientId || userId;
+  // Use userId for rate limiting to aggregate usage across all client keys of the same user
+  const rateLimitKey = userId;
 
   // Get user's subscription plan limits
   const planRepository = new PlanRepository();

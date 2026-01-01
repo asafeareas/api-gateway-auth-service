@@ -3,6 +3,7 @@ import { AuthController } from './controllers/AuthController';
 import { AuthService } from './services/AuthService';
 import { AuthRepository } from './repositories/AuthRepository';
 import { PlanRepository } from '../plans/PlanRepository';
+import { authRateLimitMiddleware } from '../../shared/middlewares/authRateLimitMiddleware';
 
 /**
  * Authentication Routes
@@ -21,20 +22,22 @@ export async function authRoutes(fastify: FastifyInstance) {
   const authController = new AuthController(authService, fastify.jwt);
 
   // Register routes
-  fastify.post('/register', async (request, reply) => {
-    return authController.register(request, reply);
+  // Protected against brute-force attacks
+  fastify.post('/register', { preHandler: authRateLimitMiddleware }, async (request, reply) => {
+    return authController.register(request as any, reply);
   });
 
-  fastify.post('/login', async (request, reply) => {
-    return authController.login(request, reply);
+  fastify.post('/login', { preHandler: authRateLimitMiddleware }, async (request, reply) => {
+    return authController.login(request as any, reply);
   });
 
   fastify.post('/refresh', async (request, reply) => {
-    return authController.refresh(request, reply);
+    return authController.refresh(request as any, reply);
   });
 
   fastify.post('/logout', async (request, reply) => {
-    return authController.logout(request, reply);
+    return authController.logout(request as any, reply);
   });
+
 }
 

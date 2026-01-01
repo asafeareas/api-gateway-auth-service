@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { AuthRepository } from '../repositories/AuthRepository';
 import { BadRequestError, UnauthorizedError, ConflictError } from '../../../shared/errors/AppError';
 import { logger } from '../../../shared/logger/logger';
@@ -21,7 +22,7 @@ export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly planRepository: PlanRepository
-  ) {}
+  ) { }
 
   /**
    * Register a new user
@@ -91,22 +92,35 @@ export class AuthService {
     };
   }
 
+
+
   /**
    * Validate refresh token
    * Returns user data if token is valid and not revoked
+   * 
+   * Security:
+   * - Hashes token for lookup (Secure)
+   * - Fallback to plain token lookup (Legacy compatibility)
    */
   async validateRefreshToken(token: string): Promise<{
     userId: string;
     email: string;
   }> {
-    const refreshToken = await this.authRepository.findRefreshTokenByToken(token);
+    // 1. Try to find by Hash (New standard)
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    let refreshToken = await this.authRepository.findRefreshTokenByToken(tokenHash);
+
+    // 2. If not found, try Plain Text (Legacy/Migration support)
+    if (!refreshToken) {
+      refreshToken = await this.authRepository.findRefreshTokenByToken(token);
+    }
 
     if (!refreshToken) {
       throw new UnauthorizedError('Invalid refresh token', 'INVALID_REFRESH_TOKEN');
     }
 
     if (refreshToken.revoked) {
-      logger.warn({ token: token.substring(0, 10) + '...' }, 'Attempt to use revoked refresh token');
+      logger.warn({ tokenPrefix: token.substring(0, 10) + '...' }, 'Attempt to use revoked refresh token');
       throw new UnauthorizedError('Refresh token has been revoked', 'REVOKED_REFRESH_TOKEN');
     }
 
@@ -118,33 +132,49 @@ export class AuthService {
 
     return {
       userId: refreshToken.userId,
-      email: refreshToken.user.email,
+      email: (refreshToken as any).user.email,
     };
   }
 
   /**
    * Save refresh token to database
+   * Stores SHA-256 hash instead of plain token
    */
   async saveRefreshToken(
     userId: string,
     token: string,
     expiresAt: Date
   ): Promise<void> {
+    // Store Hash, not plain token
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
     await this.authRepository.createRefreshToken({
       userId,
-      token,
+      token: tokenHash,
       expiresAt,
     });
 
-    logger.debug({ userId }, 'Refresh token saved');
+    logger.debug({ userId }, 'Refresh token saved (hashed)');
   }
 
   /**
    * Revoke refresh token (logout)
    */
   async revokeRefreshToken(token: string): Promise<void> {
-    await this.authRepository.revokeRefreshToken(token);
-    logger.info({ token: token.substring(0, 10) + '...' }, 'Refresh token revoked');
+    // Try to revoke hash first
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Check if it exists as hash
+    const existsAsHash = await this.authRepository.findRefreshTokenByToken(tokenHash);
+
+    if (existsAsHash) {
+      await this.authRepository.revokeRefreshToken(tokenHash);
+    } else {
+      // Fallback to plain text revocation
+      await this.authRepository.revokeRefreshToken(token);
+    }
+
+    logger.info({ tokenPrefix: token.substring(0, 10) + '...' }, 'Refresh token revoked');
   }
 
   /**

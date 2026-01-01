@@ -1,6 +1,8 @@
 import { PlanRepository } from './PlanRepository';
 import { PlanType, getPlanLimits } from './PlanConfig';
 import { NotFoundError } from '../../shared/errors/AppError';
+import { redis } from '../../infra/redis/redis';
+import { logger } from '../../shared/logger/logger';
 
 /**
  * Subscription Plan Service
@@ -11,7 +13,7 @@ import { NotFoundError } from '../../shared/errors/AppError';
  * - Enables easy testing and dependency injection
  */
 export class PlanService {
-  constructor(private readonly planRepository: PlanRepository) {}
+  constructor(private readonly planRepository: PlanRepository) { }
 
   /**
    * Get subscription with limits for a user
@@ -33,20 +35,54 @@ export class PlanService {
   /**
    * Get plan limits for a user
    * Returns plan configuration with limits
+   * 
+   * Security:
+   * - Uses Redis caching to prevent DB exhaustion (DoS protection)
+   * - TTL: 60 seconds (Trade-off between consistency and performance)
    */
   async getPlanLimitsForUser(userId: string) {
+    const cacheKey = `plan:limits:${userId}`;
+
+    // Try cache
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      // Fail open (continue to DB) but log error
+      logger.error({ error, userId }, 'Redis cache read failed for plan limits');
+    }
+
     try {
       const subscription = await this.planRepository.getSubscriptionByUserId(
         userId
       );
-      return {
+
+      const limits = {
         requestsPerMinute: subscription.requestsPerMinute,
         requestsPerDay: subscription.requestsPerDay,
       };
-    } catch (error) {
+
+      // Set cache
+      try {
+        await redis.set(cacheKey, JSON.stringify(limits), 'EX', 60);
+      } catch (error) {
+        logger.error({ error, userId }, 'Redis cache set failed for plan limits');
+      }
+
+      return limits;
+    } catch (error: any) { // Type check needed for instanceof
       // If subscription not found, return FREE plan limits
       if (error instanceof NotFoundError) {
-        return getPlanLimits(PlanType.FREE);
+        const limits = getPlanLimits(PlanType.FREE);
+
+        // Also cache default limits
+        try {
+          await redis.set(cacheKey, JSON.stringify(limits), 'EX', 60);
+        } catch (ignored) { }
+
+        return limits;
       }
       throw error;
     }

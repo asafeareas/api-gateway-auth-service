@@ -29,6 +29,15 @@ export async function createApp(): Promise<FastifyInstance> {
     },
   });
 
+  // Security Headers
+  await app.register(import('@fastify/helmet'), { global: true });
+
+  // CORS
+  await app.register(import('@fastify/cors'), {
+    origin: true, // Reflect request origin (permissive but secure)
+    credentials: true,
+  });
+
   // Register JWT plugin
   await app.register(fastifyJwt, {
     secret: env.JWT_SECRET,
